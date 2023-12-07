@@ -4,11 +4,12 @@ import numpy as np
 import pandas as pd
 from keras import backend as K
 from keras.src.callbacks import History, ModelCheckpoint
+from keras.src.engine.base_layer import Layer
 from keras.src.engine.keras_tensor import KerasTensor
 from keras.src.losses import mse
-from keras.src.optimizers import SGD, Adam
-
-from notebooks.vae.model import get_vae_decoder_encoder
+from keras.src.optimizers import SGD  # , Adam
+from model import get_vae_encoder_decoder
+from tensorflow.keras.optimizers.legacy import Adam
 
 if __name__ == "__main__":
     parser = OptionParser(usage="%prog -d %data_file")
@@ -23,13 +24,20 @@ if __name__ == "__main__":
         exit(1)
 
     ttb_df = pd.read_csv(options.data, sep=" ", header=None)
-    data = ttb_df.values
-    data = data[:, 0:26]
+    data = ttb_df.values[:, 0:26].copy()
+
+    max = np.empty(26)
+    for i in range(0, data.shape[1]):
+        max[i] = np.max(np.abs(data[:, i]))
+        if np.abs(max[i]) > 0:
+            data[:, i] = data[:, i] / max[i]
+        else:
+            pass
 
     train_size = 100000
 
     x_train = data[:train_size]
-    x_test = data[100000:200000]
+    x_test = data[train_size : train_size * 2]
     image_size = x_train.shape[1]
     input_dim = image_size
 
@@ -40,10 +48,10 @@ if __name__ == "__main__":
     batch_size = 1024
 
     def vae_loss(
-        x: KerasTensor,
-        x_decoded_mean: KerasTensor,
-        z_log_var: KerasTensor,
-        z_mean: KerasTensor,
+        x: Layer,
+        x_decoded_mean: Layer,
+        z_log_var: Layer,
+        z_mean: Layer,
     ) -> KerasTensor:
         mse_loss = mse(x, x_decoded_mean)
         kl_loss = z_log_var + 1 - K.square(z_mean) - K.exp(z_log_var)
@@ -53,7 +61,7 @@ if __name__ == "__main__":
         loss = K.mean((1 - beta) * mse_loss + beta * kl_loss)
         return loss
 
-    vae, decoder, encoder = get_vae_decoder_encoder(input_dim=input_dim)
+    vae, encoder, decoder = get_vae_encoder_decoder(input_dim=input_dim)
 
     learnrate = 0.001
     iterations = 7
@@ -69,8 +77,8 @@ if __name__ == "__main__":
         vae_loss(
             x=vae.input,
             x_decoded_mean=vae.output,
-            z_log_var=decoder.outputs[1],
-            z_mean=decoder.outputs[0],
+            z_log_var=encoder.output[1],
+            z_mean=encoder.output[0],
         )
     )
     vae.compile(optimizer=opt, loss=None)
@@ -80,7 +88,7 @@ if __name__ == "__main__":
     k = 0
     while learnrate > lr_limit:
         if k < 4:
-            opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
+            opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=18e-08)
         else:
             opt = SGD(lr=learnrate, momentum=0.9, nesterov=True)
             epochs = 120

@@ -25,7 +25,7 @@ def sampling(args):
     return z_mean + K.exp(0.5 * z_log_var) * epsilon
 
 
-def get_vae_decoder_encoder(
+def get_vae_encoder_decoder(
     input_dim: int,
     latent_dim: int = 20,
     encoder_dim: int = 128,
