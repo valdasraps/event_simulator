@@ -1,3 +1,5 @@
+import typing
+
 import numpy as np
 from keras import Input, Model
 from keras import backend as K
@@ -28,7 +30,7 @@ def get_vae_decoder_encoder(
     latent_dim: int = 20,
     encoder_dim: int = 128,
     intermediate_dim: int = 128,
-):
+) -> typing.Tuple[Model, Model, Model]:
     elu_var: float = np.sqrt(1.55 / intermediate_dim)
     inputs = Input(shape=(input_dim,), name="encoder_input")
     x1 = Dense(
