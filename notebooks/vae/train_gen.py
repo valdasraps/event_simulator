@@ -72,7 +72,7 @@ if __name__ == "__main__":
     history = History()
     k = 0
     checkpointer = ModelCheckpoint(
-        filepath=f"{options.data}.checkpoint.hdf5", verbose=1, save_best_only=True
+        filepath=f"{options.data}.weights.hdf5", verbose=1, save_best_only=True
     )
     opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 
