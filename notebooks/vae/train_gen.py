@@ -28,9 +28,9 @@ if __name__ == "__main__":
         exit(1)
 
     ttb_df = pd.read_csv(options.data, sep=" ", header=None)
-    data = ttb_df.values[:, 0:26].copy()
+    data = ttb_df.values.copy()
 
-    max = np.empty(26)
+    max = np.empty(data.shape[1])
     for i in range(0, data.shape[1]):
         max[i] = np.max(np.abs(data[:, i]))
         if np.abs(max[i]) > 0:
