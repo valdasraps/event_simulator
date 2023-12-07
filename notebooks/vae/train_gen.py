@@ -72,7 +72,7 @@ if __name__ == "__main__":
     history = History()
     k = 0
     checkpointer = ModelCheckpoint(
-        filepath="ttbar_20d_e-6.hdf5", verbose=1, save_best_only=True
+        filepath=f"{options.data}.checkpoint.hdf5", verbose=1, save_best_only=True
     )
     opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 
@@ -107,22 +107,22 @@ if __name__ == "__main__":
                 validation_data=(x_test, x_test),
                 callbacks=[checkpointer, history],
             )
-            vae.load_weights("ttbar_20d_e-6.hdf5")
+            vae.load_weights(f"{options.data}.weights.hdf5")
             learnrate /= 2
             k = k + 1
 
-            vae.save_weights("ttbar_20d_e-6.h5")
+            vae.save_weights(f"{options.data}.weights.h5")
 
 latent_mean = encoder.predict(x_train)[0]
 latent_logvar = encoder.predict(x_train)[1]
 latent_var = np.exp(latent_logvar)
 latent_std = np.sqrt(latent_var)
-np.savetxt("latent_mean_20d_e-6.csv", latent_mean)
-np.savetxt("latent_std_20d_e-6.csv", latent_std)
-filename = "latent_mean_20d_e-6.csv"
+np.savetxt(f"{options.data}.latent_mean.csv", latent_mean)
+np.savetxt(f"{options.data}.latent_std.csv", latent_std)
+filename = f"{options.data}.latent_mean.csv"
 means_df = pd.read_csv(filename, sep=" ", header=None)
 mean = means_df.values
-filename = "latent_std_20d_e-6.csv"
+filename = f"{options.data}.latent_std.csv"
 stds_df = pd.read_csv(filename, sep=" ", header=None)
 std = stds_df.values
 lat_dim = 20
@@ -143,4 +143,4 @@ new_events = decoder.predict(z_samples)
 for i in range(0, new_events.shape[1]):
     new_events[:, i] = new_events[:, i] * max[i]
 
-np.savetxt("B-VAE_events.csv", new_events)
+np.savetxt(f"{options.data}.gen_events.csv", new_events)
