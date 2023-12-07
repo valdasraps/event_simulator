@@ -89,7 +89,7 @@ if __name__ == "__main__":
     vae.summary()
 
     k = 0
-    if args.weights:
+    if options.weights:
         vae.load_weights(args.weights)
     else:
         while learnrate > lr_limit:
