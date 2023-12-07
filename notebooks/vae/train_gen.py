@@ -124,13 +124,14 @@ stds_df = pd.read_csv(filename, sep=" ", header=None)
 std = stds_df.values
 lat_dim = 20
 b = "e-6"
-z_samples = np.empty([1200000, lat_dim])
+samples_num = data.shape[0]
+z_samples = np.empty([samples_num, lat_dim])
 l = 0
 
 # sampling from the new prior with gamma=0.05
 
 l = 0
-for i in range(0, 1200000):
+for i in range(0, samples_num):
     for j in range(0, lat_dim):
         z_samples[l, j] = np.random.normal(
             mean[i % 100000, j], 0.05 + std[i % 100000, j]
