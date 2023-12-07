@@ -12,9 +12,12 @@ from model import get_vae_encoder_decoder
 from tensorflow.keras.optimizers.legacy import Adam
 
 if __name__ == "__main__":
-    parser = OptionParser(usage="%prog -d %data_file")
+    parser = OptionParser(usage="%prog -d %data_file -w %weights_file")
     parser.add_option(
         "-d", "--data", dest="data", help="Training data file", metavar="data"
+    )
+    parser.add_option(
+        "-w", "--weights", dest="weights", help="Weights file", metavar="weights"
     )
 
     (options, args) = parser.parse_args()
@@ -86,23 +89,58 @@ if __name__ == "__main__":
     vae.summary()
 
     k = 0
-    while learnrate > lr_limit:
-        if k < 4:
-            opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=18e-08)
-        else:
-            opt = SGD(lr=learnrate, momentum=0.9, nesterov=True)
-            epochs = 120
-        vae.compile(loss=None, optimizer=opt, metrics=["mse"])
-        vae.fit(
-            x_train,
-            x_train,
-            epochs=epochs,
-            batch_size=batch_size,
-            validation_data=(x_test, x_test),
-            callbacks=[checkpointer, history],
-        )
-        vae.load_weights("ttbar_20d_e-6.hdf5")
-        learnrate /= 2
-        k = k + 1
+    if args.weights:
+        vae.load_weights(args.weights)
+    else:
+        while learnrate > lr_limit:
+            if k < 4:
+                opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=18e-08)
+            else:
+                opt = SGD(lr=learnrate, momentum=0.9, nesterov=True)
+                epochs = 120
+            vae.compile(loss=None, optimizer=opt, metrics=["mse"])
+            vae.fit(
+                x_train,
+                x_train,
+                epochs=epochs,
+                batch_size=batch_size,
+                validation_data=(x_test, x_test),
+                callbacks=[checkpointer, history],
+            )
+            vae.load_weights("ttbar_20d_e-6.hdf5")
+            learnrate /= 2
+            k = k + 1
 
-        vae.save_weights("ttbar_20d_e-6.h5")
+            vae.save_weights("ttbar_20d_e-6.h5")
+
+latent_mean = encoder.predict(x_train)[0]
+latent_logvar = encoder.predict(x_train)[1]
+latent_var = np.exp(latent_logvar)
+latent_std = np.sqrt(latent_var)
+np.savetxt("latent_mean_20d_e-6.csv", latent_mean)
+np.savetxt("latent_std_20d_e-6.csv", latent_std)
+filename = "latent_mean_20d_e-6.csv"
+means_df = pd.read_csv(filename, sep=" ", header=None)
+mean = means_df.values
+filename = "latent_std_20d_e-6.csv"
+stds_df = pd.read_csv(filename, sep=" ", header=None)
+std = stds_df.values
+lat_dim = 20
+b = "e-6"
+z_samples = np.empty([1200000, lat_dim])
+l = 0
+
+# sampling from the new prior with gamma=0.05
+
+l = 0
+for i in range(0, 1200000):
+    for j in range(0, lat_dim):
+        z_samples[l, j] = np.random.normal(
+            mean[i % 100000, j], 0.05 + std[i % 100000, j]
+        )
+    l = l + 1
+new_events = decoder.predict(z_samples)
+for i in range(0, new_events.shape[1]):
+    new_events[:, i] = new_events[:, i] * max[i]
+
+np.savetxt("B-VAE_events.csv", new_events)
