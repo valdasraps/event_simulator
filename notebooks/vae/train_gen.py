@@ -9,6 +9,7 @@ from keras.src.engine.keras_tensor import KerasTensor
 from keras.src.losses import mse
 from keras.src.optimizers import SGD  # , Adam
 from model import get_vae_encoder_decoder
+from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers.legacy import Adam
 
 if __name__ == "__main__":
@@ -37,12 +38,8 @@ if __name__ == "__main__":
         else:
             pass
 
-    train_size = 100000
-
-    x_train = data[:train_size]
-    x_test = data[train_size : train_size * 2]
-    image_size = x_train.shape[1]
-    input_dim = image_size
+    x_train, x_test = train_test_split(data, test_size=0.25, random_state=25)
+    input_dim = x_train.shape[1]
 
     x_train = np.reshape(x_train, [-1, input_dim]).astype("float32")
     x_test = np.reshape(x_test, [-1, input_dim]).astype("float32")
