@@ -116,7 +116,7 @@ if __name__ == "__main__":
     disc_logger = CSVLogger(
         filename=rm_file(f"{options.data}.disc.log"), separator=",", append=True
     )
-    disc.compile(optimizer=Adam(learning_rate=1e-4), loss="binary_crossentropy")
+    disc.compile(optimizer=Adam(learning_rate=learnrate), loss="binary_crossentropy")
 
     edis_checkpointer = ModelCheckpoint(
         filepath=rm_file(f"{options.data}.edis.weights.hdf5"),
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     edis_logger = CSVLogger(
         rm_file(f"{options.data}.edis.log"), separator=",", append=True
     )
-    edis.compile(optimizer=Adam(learning_rate=1e-4), loss="binary_crossentropy")
+    edis.compile(optimizer=Adam(learning_rate=learnrate), loss="binary_crossentropy")
 
     k = 0
     if options.weights:
@@ -144,6 +144,7 @@ if __name__ == "__main__":
             else:
                 opt = SGD(learning_rate=learnrate, momentum=0.9, nesterov=True)
                 epochs = epochs // 2
+
             vae.compile(loss=None, optimizer=opt, metrics=["mse"])
             vae.fit(
                 x_train,
@@ -169,6 +170,9 @@ if __name__ == "__main__":
                 [np.zeros(x_test.shape[0]), np.ones(x_test.shape[0])]
             )
 
+            disc.compile(
+                optimizer=Adam(learning_rate=learnrate), loss="binary_crossentropy"
+            )
             disc.fit(
                 disc_train_x,
                 disc_train_y,
@@ -182,6 +186,9 @@ if __name__ == "__main__":
             set_trainable(edis, True)
             set_trainable(encoder, True)
             set_trainable(disc, False)
+            edis.compile(
+                optimizer=Adam(learning_rate=learnrate), loss="binary_crossentropy"
+            )
             edis.fit(
                 x_train,
                 np.ones(x_train.shape[0]),
