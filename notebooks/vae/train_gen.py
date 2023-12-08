@@ -3,7 +3,7 @@ from optparse import OptionParser
 import numpy as np
 import pandas as pd
 from keras import backend as K
-from keras.src.callbacks import History, ModelCheckpoint
+from keras.src.callbacks import CSVLogger, History, ModelCheckpoint
 from keras.src.engine.base_layer import Layer
 from keras.src.engine.keras_tensor import KerasTensor
 from keras.src.losses import mse
@@ -67,10 +67,10 @@ if __name__ == "__main__":
     iterations = 7
     lr_limit = 0.001 / (2**iterations)
     history = History()
-    k = 0
     checkpointer = ModelCheckpoint(
         filepath=f"{options.data}.weights.hdf5", verbose=1, save_best_only=True
     )
+    logger = CSVLogger(f"{options.data}.log", separator=",", append=True)
     opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 
     vae.add_loss(
@@ -102,7 +102,7 @@ if __name__ == "__main__":
                 epochs=epochs,
                 batch_size=batch_size,
                 validation_data=(x_test, x_test),
-                callbacks=[checkpointer, history],
+                callbacks=[checkpointer, history, logger],
             )
             vae.load_weights(f"{options.data}.weights.hdf5")
             learnrate /= 2
@@ -110,35 +110,34 @@ if __name__ == "__main__":
 
             vae.save_weights(f"{options.data}.weights.h5")
 
-latent_mean = encoder.predict(x_train)[0]
-latent_logvar = encoder.predict(x_train)[1]
-latent_var = np.exp(latent_logvar)
-latent_std = np.sqrt(latent_var)
-np.savetxt(f"{options.data}.latent_mean.csv", latent_mean)
-np.savetxt(f"{options.data}.latent_std.csv", latent_std)
-filename = f"{options.data}.latent_mean.csv"
-means_df = pd.read_csv(filename, sep=" ", header=None)
-mean = means_df.values
-filename = f"{options.data}.latent_std.csv"
-stds_df = pd.read_csv(filename, sep=" ", header=None)
-std = stds_df.values
-lat_dim = 20
-b = "e-6"
-samples_num = data.shape[0]
-z_samples = np.empty([samples_num, lat_dim])
-l = 0
+    latent_mean = encoder.predict(x_train)[0]
+    latent_logvar = encoder.predict(x_train)[1]
+    latent_var = np.exp(latent_logvar)
+    latent_std = np.sqrt(latent_var)
+    np.savetxt(f"{options.data}.latent_mean.csv", latent_mean)
+    np.savetxt(f"{options.data}.latent_std.csv", latent_std)
+    filename = f"{options.data}.latent_mean.csv"
+    means_df = pd.read_csv(filename, sep=" ", header=None)
+    mean = means_df.values
+    filename = f"{options.data}.latent_std.csv"
+    stds_df = pd.read_csv(filename, sep=" ", header=None)
+    std = stds_df.values
+    lat_dim = 20
+    b = "e-6"
+    samples_num = data.shape[0]
+    z_samples = np.empty([samples_num, lat_dim])
 
-# sampling from the new prior with gamma=0.05
+    # sampling from the new prior with gamma=0.05
 
-l = 0
-for i in range(0, samples_num):
-    for j in range(0, lat_dim):
-        z_samples[l, j] = np.random.normal(
-            mean[i % 100000, j], 0.05 + std[i % 100000, j]
-        )
-    l = l + 1
-new_events = decoder.predict(z_samples)
-for i in range(0, new_events.shape[1]):
-    new_events[:, i] = new_events[:, i] * max[i]
+    l = 0
+    for i in range(0, samples_num):
+        for j in range(0, lat_dim):
+            z_samples[l, j] = np.random.normal(
+                mean[i % 100000, j], 0.05 + std[i % 100000, j]
+            )
+        l = l + 1
+    new_events = decoder.predict(z_samples)
+    for i in range(0, new_events.shape[1]):
+        new_events[:, i] = new_events[:, i] * max[i]
 
-np.savetxt(f"{options.data}.gen_events.csv", new_events)
+    np.savetxt(f"{options.data}.gen_events.csv", new_events)
