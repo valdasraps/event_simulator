@@ -1,4 +1,3 @@
-import os
 from optparse import OptionParser
 
 import numpy as np
@@ -13,15 +12,6 @@ from keras.src.optimizers import SGD  # , Adam
 from model import get_vae_encoder_decoder
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers.legacy import Adam
-
-
-def rm_file(file_name: str) -> str:
-    try:
-        os.remove(file_name)
-    except OSError:
-        pass
-    return file_name
-
 
 if __name__ == "__main__":
     parser = OptionParser(usage="%prog -d %data_file -w %weights_file")
@@ -55,23 +45,8 @@ if __name__ == "__main__":
     x_train = np.reshape(x_train, [-1, input_dim]).astype("float32")
     x_test = np.reshape(x_test, [-1, input_dim]).astype("float32")
 
-    epochs = 240
+    epochs = 24
     batch_size = 1024
-    latent_dim = 20
-
-    def vae_loss(
-        x: Layer,
-        x_decoded_mean: Layer,
-        z_log_var: Layer,
-        z_mean: Layer,
-    ) -> KerasTensor:
-        mse_loss = mse(x, x_decoded_mean)
-        kl_loss = z_log_var + 1 - K.square(z_mean) - K.exp(z_log_var)
-        kl_loss = K.sum(kl_loss, axis=-1)
-        kl_loss *= -0.5
-        beta = 10 ** (-6)
-        loss = K.mean((1 - beta) * mse_loss + beta * kl_loss)
-        return loss
 
     def inv_mass(x: Layer) -> tf.Tensor:
         e_tensor = tf.gather(x, [0, 4, 8, 12], axis=1)
@@ -85,25 +60,42 @@ if __name__ == "__main__":
             - tf.square(tf.reduce_sum(z_tensor, axis=1))
         )
 
-    def inv_mass_loss(
+    def vae_loss(
         x: Layer,
         x_decoded_mean: Layer,
-    ) -> tf.Tensor:
-        return tf.square(inv_mass(x) - inv_mass(x_decoded_mean))
+        z_log_var: Layer,
+        z_mean: Layer,
+    ) -> KerasTensor:
+        mse_loss = mse(x, x_decoded_mean)
+        kl_loss = z_log_var + 1 - K.square(z_mean) - K.exp(z_log_var)
+        kl_loss = K.sum(kl_loss, axis=-1)
+        kl_loss *= -0.5
+        inv_m_loss = tf.square(inv_mass(x) - inv_mass(x_decoded_mean))
+        beta = 10 ** (-6)
+        alpha = 10 ** (-6)
+        loss = K.mean((1 - beta) * mse_loss + beta * kl_loss + alpha * inv_m_loss)
+        return loss
 
-    vae, encoder, decoder = get_vae_encoder_decoder(input_dim=input_dim, latent_dim=20)
+    vae, encoder, decoder = get_vae_encoder_decoder(input_dim=input_dim)
 
     learnrate = 0.001
     iterations = 7
     lr_limit = 0.001 / (2**iterations)
     history = History()
     checkpointer = ModelCheckpoint(
-        filepath=rm_file(f"{options.data}.weights.hdf5"), verbose=1, save_best_only=True
+        filepath=f"{options.data}.weights.hdf5", verbose=1, save_best_only=True
     )
-    logger = CSVLogger(rm_file(f"{options.data}.log"), separator=",", append=True)
+    logger = CSVLogger(f"{options.data}.log", separator=",", append=True)
     opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 
-    vae.add_loss(inv_mass_loss(x=vae.input, x_decoded_mean=vae.output))
+    vae.add_loss(
+        vae_loss(
+            x=vae.input,
+            x_decoded_mean=vae.output,
+            z_log_var=encoder.output[1],
+            z_mean=encoder.output[0],
+        )
+    )
     vae.compile(optimizer=opt, loss=None)
 
     vae.summary()
