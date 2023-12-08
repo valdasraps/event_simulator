@@ -45,7 +45,7 @@ if __name__ == "__main__":
     x_train = np.reshape(x_train, [-1, input_dim]).astype("float32")
     x_test = np.reshape(x_test, [-1, input_dim]).astype("float32")
 
-    epochs = 24
+    epochs = 240
     batch_size = 1024
 
     def inv_mass(x: Layer) -> tf.Tensor:
