@@ -206,7 +206,7 @@ if __name__ == "__main__":
                     lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=1e-08
                 )  # , decay=0.0)
             else:
-                opt = SGD(lr=learnrate, decay=1e-6, momentum=0.9, nesterov=True)
+                opt = SGD(lr=learnrate, momentum=0.9, nesterov=True) # , decay=1e-6)
                 epochs = 120
             # vae.add_loss(vae_loss(inputs, outputs))
             vae.compile(loss=None, optimizer=opt, metrics=["mse"])
