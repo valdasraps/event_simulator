@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     learnrate = 0.001
     iterations = 7
-    lr_limit = 0.001 / (2**iterations)
+    lr_limit = learnrate / (2**iterations)
     history = History()
 
     vae_checkpointer = ModelCheckpoint(
@@ -169,10 +169,7 @@ if __name__ == "__main__":
             disc_test_y = np.concatenate(
                 [np.zeros(x_test.shape[0]), np.ones(x_test.shape[0])]
             )
-
-            disc.compile(
-                optimizer=Adam(learning_rate=learnrate), loss="binary_crossentropy"
-            )
+            disc.compile(optimizer=opt, loss="binary_crossentropy")
             disc.fit(
                 disc_train_x,
                 disc_train_y,
@@ -186,9 +183,7 @@ if __name__ == "__main__":
             set_trainable(edis, True)
             set_trainable(encoder, True)
             set_trainable(disc, False)
-            edis.compile(
-                optimizer=Adam(learning_rate=learnrate), loss="binary_crossentropy"
-            )
+            edis.compile(optimizer=opt, loss="binary_crossentropy")
             edis.fit(
                 x_train,
                 np.ones(x_train.shape[0]),
