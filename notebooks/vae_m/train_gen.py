@@ -84,7 +84,7 @@ if __name__ == "__main__":
         monitor="val_loss", patience=100, verbose=2, restore_best_weights=True
     )
     lr_scheduler = LearningRateScheduler(
-        CosineScheduler(100, warmup_steps=5, base_lr=0.001, final_lr=1e-7), verbose=1
+        CosineScheduler(60, warmup_steps=5, base_lr=0.001, final_lr=1e-6), verbose=1
     )
 
     # lr_scheduler = LearningRateScheduler(
