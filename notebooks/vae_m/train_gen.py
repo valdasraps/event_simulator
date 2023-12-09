@@ -3,6 +3,7 @@ from optparse import OptionParser
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from cosine_scheduler import CosineScheduler
 from keras import backend as K
 from keras.src.callbacks import CSVLogger, EarlyStopping, LearningRateScheduler
 from keras.src.engine.base_layer import Layer
@@ -12,8 +13,6 @@ from keras.src.optimizers import Adagrad
 from model import get_vae_encoder_decoder
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers.legacy import Adam
-
-from notebooks.vae_m.cosine_scheduler import CosineScheduler
 
 if __name__ == "__main__":
     parser = OptionParser(usage="%prog -d %data_file -w %weights_file")
