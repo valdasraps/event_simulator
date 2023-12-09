@@ -82,7 +82,8 @@ if __name__ == "__main__":
         monitor="val_loss", patience=10, verbose=1, restore_best_weights=True
     )
     lr_scheduler = LearningRateScheduler(
-        lambda epoch: learning_rate * epoch ** (-0.4), verbose=1
+        lambda epoch: learning_rate * epoch ** (-0.4) if epoch > 0 else learning_rate,
+        verbose=1,
     )
     # checkpointer = ModelCheckpoint(
     #     filepath=f"{options.data}.weights.hdf5", verbose=1, save_best_only=True
