@@ -8,6 +8,7 @@ from keras.src.callbacks import CSVLogger, EarlyStopping, LearningRateScheduler
 from keras.src.engine.base_layer import Layer
 from keras.src.engine.keras_tensor import KerasTensor
 from keras.src.losses import mse
+from keras.src.optimizers import Adagrad
 from model import get_vae_encoder_decoder
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers.legacy import Adam
@@ -79,18 +80,18 @@ if __name__ == "__main__":
 
     learning_rate = 0.001
     early_stop = EarlyStopping(
-        monitor="val_loss", patience=10, verbose=1, restore_best_weights=True
+        monitor="val_loss", patience=100, verbose=1, restore_best_weights=True
     )
-    lr_scheduler = LearningRateScheduler(
-        lambda epoch: learning_rate * epoch ** (-0.4) if epoch > 0 else learning_rate,
-        verbose=1,
-    )
+    # lr_scheduler = LearningRateScheduler(
+    #     lambda epoch: learning_rate * epoch ** (-0.4) if epoch > 0 else learning_rate,
+    #     verbose=1,
+    # )
     # checkpointer = ModelCheckpoint(
     #     filepath=f"{options.data}.weights.hdf5", verbose=1, save_best_only=True
     # )
     logger = CSVLogger(f"{options.data}.log", separator=",", append=True)
-    opt = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
-
+    opt = Adagrad(learning_rate=learning_rate, epsilon=1e-08)
+    vae.compile(loss=None, optimizer=opt, metrics=["mse"])
     vae.add_loss(
         vae_loss(
             x=vae.input,
@@ -100,22 +101,18 @@ if __name__ == "__main__":
         )
     )
     vae.compile(optimizer=opt, loss=None)
-
     vae.summary()
 
-    k = 0
     if options.weights:
         vae.load_weights(options.weights)
     else:
-        opt = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=18e-08)
-        vae.compile(loss=None, optimizer=opt, metrics=["mse"])
         vae.fit(
             x_train,
             x_train,
             epochs=epochs,
             batch_size=batch_size,
             validation_data=(x_test, x_test),
-            callbacks=[early_stop, lr_scheduler, logger],
+            callbacks=[early_stop, logger],
         )
         vae.save_weights(f"{options.data}.weights.h5")
 
