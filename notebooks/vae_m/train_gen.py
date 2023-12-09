@@ -13,6 +13,8 @@ from model import get_vae_encoder_decoder
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers.legacy import Adam
 
+from notebooks.vae_m.cosine_scheduler import CosineScheduler
+
 if __name__ == "__main__":
     parser = OptionParser(usage="%prog -d %data_file -w %weights_file")
     parser.add_option(
@@ -80,8 +82,12 @@ if __name__ == "__main__":
 
     learning_rate = 0.001
     early_stop = EarlyStopping(
-        monitor="val_loss", patience=100, verbose=1, restore_best_weights=True
+        monitor="val_loss", patience=10, verbose=1, restore_best_weights=True
     )
+    lr_scheduler = LearningRateScheduler(
+        CosineScheduler(100, warmup_steps=5, base_lr=0.01, final_lr=1e-6), verbose=1
+    )
+
     # lr_scheduler = LearningRateScheduler(
     #     lambda epoch: learning_rate * epoch ** (-0.4) if epoch > 0 else learning_rate,
     #     verbose=1,
@@ -90,7 +96,8 @@ if __name__ == "__main__":
     #     filepath=f"{options.data}.weights.hdf5", verbose=1, save_best_only=True
     # )
     logger = CSVLogger(f"{options.data}.log", separator=",", append=True)
-    opt = Adagrad(learning_rate=learning_rate, epsilon=1e-08)
+    opt = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
+
     vae.add_loss(
         vae_loss(
             x=vae.input,
@@ -99,9 +106,11 @@ if __name__ == "__main__":
             z_mean=encoder.output[0],
         )
     )
-    vae.compile(loss=None, optimizer=opt, metrics=["mse"])
+    vae.compile(optimizer=opt, loss=None)
+
     vae.summary()
 
+    k = 0
     if options.weights:
         vae.load_weights(options.weights)
     else:
@@ -111,7 +120,7 @@ if __name__ == "__main__":
             epochs=epochs,
             batch_size=batch_size,
             validation_data=(x_test, x_test),
-            callbacks=[early_stop, logger],
+            callbacks=[early_stop, logger, lr_scheduler],
         )
         vae.save_weights(f"{options.data}.weights.h5")
 
