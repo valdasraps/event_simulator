@@ -91,7 +91,6 @@ if __name__ == "__main__":
     # )
     logger = CSVLogger(f"{options.data}.log", separator=",", append=True)
     opt = Adagrad(learning_rate=learning_rate, epsilon=1e-08)
-    vae.compile(loss=None, optimizer=opt, metrics=["mse"])
     vae.add_loss(
         vae_loss(
             x=vae.input,
@@ -100,7 +99,7 @@ if __name__ == "__main__":
             z_mean=encoder.output[0],
         )
     )
-    vae.compile(optimizer=opt, loss=None)
+    vae.compile(loss=None, optimizer=opt, metrics=["mse"])
     vae.summary()
 
     if options.weights:
