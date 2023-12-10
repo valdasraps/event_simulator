@@ -2,14 +2,12 @@ from optparse import OptionParser
 
 import numpy as np
 import pandas as pd
-import tensorflow as tf
-from cosine_scheduler import CosineScheduler
 from keras import backend as K
-from keras.src.callbacks import CSVLogger, EarlyStopping, LearningRateScheduler
+from keras.src.callbacks import CSVLogger, History, ModelCheckpoint
 from keras.src.engine.base_layer import Layer
 from keras.src.engine.keras_tensor import KerasTensor
 from keras.src.losses import mse
-from keras.src.optimizers import Adagrad
+from keras.src.optimizers import SGD  # , Adam
 from model import get_vae_encoder_decoder
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers.legacy import Adam
@@ -46,20 +44,8 @@ if __name__ == "__main__":
     x_train = np.reshape(x_train, [-1, input_dim]).astype("float32")
     x_test = np.reshape(x_test, [-1, input_dim]).astype("float32")
 
-    epochs = 2400
+    epochs = 240
     batch_size = 1024
-
-    def inv_mass(x: Layer) -> tf.Tensor:
-        e_tensor = tf.gather(x, [0, 4, 8, 12], axis=1)
-        x_tensor = tf.gather(x, [1, 5, 9, 13], axis=1)
-        y_tensor = tf.gather(x, [2, 6, 10, 14], axis=1)
-        z_tensor = tf.gather(x, [3, 7, 11, 15], axis=1)
-        return (
-            tf.square(tf.reduce_sum(e_tensor, axis=1))
-            - tf.square(tf.reduce_sum(x_tensor, axis=1))
-            - tf.square(tf.reduce_sum(y_tensor, axis=1))
-            - tf.square(tf.reduce_sum(z_tensor, axis=1))
-        )
 
     def vae_loss(
         x: Layer,
@@ -71,31 +57,21 @@ if __name__ == "__main__":
         kl_loss = z_log_var + 1 - K.square(z_mean) - K.exp(z_log_var)
         kl_loss = K.sum(kl_loss, axis=-1)
         kl_loss *= -0.5
-        # inv_m_loss = tf.square(inv_mass(x) - inv_mass(x_decoded_mean))
         beta = 10 ** (-6)
-        # alpha = 10 ** (-6)
-        loss = K.mean((1 - beta) * mse_loss + beta * kl_loss)  # + alpha * inv_m_loss)
+        loss = K.mean((1 - beta) * mse_loss + beta * kl_loss)
         return loss
 
     vae, encoder, decoder = get_vae_encoder_decoder(input_dim=input_dim)
 
-    learning_rate = 0.001
-    early_stop = EarlyStopping(
-        monitor="val_loss", patience=100, verbose=2, restore_best_weights=True
+    learnrate = 0.001
+    iterations = 7
+    lr_limit = 0.001 / (2**iterations)
+    history = History()
+    checkpointer = ModelCheckpoint(
+        filepath=f"{options.data}.weights.hdf5", verbose=1, save_best_only=True
     )
-    lr_scheduler = LearningRateScheduler(
-        CosineScheduler(60, warmup_steps=5, base_lr=0.001, final_lr=1e-6), verbose=1
-    )
-
-    # lr_scheduler = LearningRateScheduler(
-    #     lambda epoch: learning_rate * epoch ** (-0.4) if epoch > 0 else learning_rate,
-    #     verbose=1,
-    # )
-    # checkpointer = ModelCheckpoint(
-    #     filepath=f"{options.data}.weights.hdf5", verbose=1, save_best_only=True
-    # )
     logger = CSVLogger(f"{options.data}.log", separator=",", append=True)
-    opt = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
+    opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 
     vae.add_loss(
         vae_loss(
@@ -113,15 +89,26 @@ if __name__ == "__main__":
     if options.weights:
         vae.load_weights(options.weights)
     else:
-        vae.fit(
-            x_train,
-            x_train,
-            epochs=epochs,
-            batch_size=batch_size,
-            validation_data=(x_test, x_test),
-            callbacks=[early_stop, logger, lr_scheduler],
-        )
-        vae.save_weights(f"{options.data}.weights.h5")
+        while learnrate > lr_limit:
+            if k < 4:
+                opt = Adam(lr=learnrate, beta_1=0.9, beta_2=0.999, epsilon=18e-08)
+            else:
+                opt = SGD(lr=learnrate, momentum=0.9, nesterov=True)
+                epochs = 120
+            vae.compile(loss=None, optimizer=opt, metrics=["mse"])
+            vae.fit(
+                x_train,
+                x_train,
+                epochs=epochs,
+                batch_size=batch_size,
+                validation_data=(x_test, x_test),
+                callbacks=[checkpointer, history, logger],
+            )
+            vae.load_weights(f"{options.data}.weights.hdf5")
+            learnrate /= 2
+            k = k + 1
+
+            vae.save_weights(f"{options.data}.weights.h5")
 
     latent_mean = encoder.predict(x_train)[0]
     latent_logvar = encoder.predict(x_train)[1]
