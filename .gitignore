@@ -1,0 +1,6 @@
+*.csv
+*.hdf
+*.hdf5
+*.log
+*.h5
+__pycache__/
